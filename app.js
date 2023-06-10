@@ -8,7 +8,7 @@ const isValid=require("date-fns/isValid");
 const app=express();
 app.use(express.json());
 const dbPath=path.join(__dirname,"todoApplication.db");
-let database=null;;
+let database;
 const initializeDBandServer=async()=>{
     try{
         database=await open({
@@ -58,8 +58,8 @@ const outPutResult=(dbObject){
         id:dbObject.id,
         todo:dbObject.todo,
         priority:dbObject.priority,
+        category:dbObject.category,
         status:dbObject.status,
-         category:dbObject.category,
         dueDate:dbObject.due_date,
     };
 };
@@ -68,30 +68,6 @@ app.get("/todos/",async(request,response)=>{
     let getTodosQuery="";
     const{search_q="",priority,status,category}=request.query;
     switch(true){
-
-        case hasStatusProperty(request.query):
-                if(status==="TO DO" || status==="IN PROGRESS" || status==="DONE"){
-                    getTodosQuery=`
-                    SELECT * FROM todo WHERE status='${status}'; `;
-                    data=await database.all(getTodosQuery);
-                    response.send(data.map((eachItem)=>outPutResult(eachItem)));
-                } else{
-                    response.status(400);
-                    response.send("Invalid Todo Status");
-                }
-            break;
-         case hasPriorityProperty(request.query):
-                 if (priority==="HIGH" || priority==="MEDIUM" || priority==="LOW"){
-                    getTodosQuery=`
-                    SELECT * FROM todo WHERE  priority='${priority}'; `;
-                    data=await database.all(getTodosQuery);
-                    response.send(data.map((eachItem)=>outPutResult(eachItem)));
-                } else{
-                    response.status(400);
-                    response.send("Invalid Todo Priority");
-                }
-   
-          break;
         case hasPriorityAndStatusProperties(request.query):
             if (priority==="HIGH" || priority==="MEDIUM" || priority==="LOW"){
                 if(status==="TO DO" || status==="IN PROGRESS" || status==="DONE"){
@@ -110,20 +86,11 @@ app.get("/todos/",async(request,response)=>{
    
           break;
 
-         case hasSearchProperty(request.query):
-        getTodosQuery=`
-        SELECT * FROM todo WHERE todo like '%${search_q}%';`;
-        data=await database.all(getTodosQuery);
-        response.send(data.map((eachItem)=>outPutResult(eachItem)));
-        break;
-
-
-
         case hasCategoryAndStatusProperties(request.query):
             if (category==="WORK" || category==="HOME" || category==="LEARNING"){
                 if(status==="TO DO" || status==="IN PROGRESS" || status==="DONE"){
                     getTodosQuery=`
-                    SELECT * FROM todo WHERE status='${status}' AND category='${category}'; `;
+                    SELECT * FROM todo WHERE category='${category}' AND status='${status}'; `;
                     data=await database.all(getTodosQuery);
                     response.send(data.map((eachItem)=>outPutResult(eachItem)));
                 } else{
@@ -136,19 +103,8 @@ app.get("/todos/",async(request,response)=>{
             }
    
           break;
-           case hasCategoryProperty(request.query):
-        if(category==="WORK" || category==="HOME" ||category==="LEARNING"){
-        getTodosQuery=`
-        SELECT * FROM todo WHERE category='${category}';`;
-        data=await database.all(getTodosQuery);
-        response.send(data.map((eachItem)=>outPutResult(eachItem)));
-        }else{
-            response.status(400);
-            response.send("Invalid Todo Category");
-        }
-        break;
 
-          case hasCategoryAndPriorityProperties(request.query):
+         case hasCategoryAndPriorityProperties(request.query):
               if(category==="WORK" || category==="HOME" || category==="LEARNING"){
                  if (priority==="HIGH" || priority==="MEDIUM" || priority==="LOW"){
                     getTodosQuery=`
@@ -160,11 +116,56 @@ app.get("/todos/",async(request,response)=>{
                     response.send("Invalid Todo Priority");
                 }
             } else{
-                response.send(400);
+                response.status(400);
                 response.send("Invalid Todo Category");
             }
    
           break;
+
+        case hasPriorityProperty(request.query):
+                 if (priority==="HIGH" || priority==="MEDIUM" || priority==="LOW"){
+                    getTodosQuery=`
+                    SELECT * FROM todo WHERE  priority='${priority}'; `;
+                    data=await database.all(getTodosQuery);
+                    response.send(data.map((eachItem)=>outPutResult(eachItem)));
+                } else{
+                    response.status(400);
+                    response.send("Invalid Todo Priority");
+                }
+   
+          break;
+
+
+        case hasStatusProperty(request.query):
+                if(status==="TO DO" || status==="IN PROGRESS" || status==="DONE"){
+                    getTodosQuery=`
+                    SELECT * FROM todo WHERE status='${status}'; `;
+                    data=await database.all(getTodosQuery);
+                    response.send(data.map((eachItem)=>outPutResult(eachItem)));
+                } else{
+                    response.status(400);
+                    response.send("Invalid Todo Status");
+                }
+            break;
+           case hasSearchProperty(request.query):
+        getTodosQuery=`
+        SELECT * FROM todo WHERE todo like '%${search_q}%';`;
+        data=await database.all(getTodosQuery);
+        response.send(data.map((eachItem)=>outPutResult(eachItem)));
+        break;
+
+ case hasCategoryProperty(request.query):
+        if(category==="WORK" || category==="HOME" ||category==="LEARNING"){
+        getTodosQuery=`
+        SELECT * FROM todo WHERE category='${category}';`;
+        data=await database.all(getTodosQuery);
+        response.send(data.map((eachItem)=>outPutResult(eachItem)));
+        }else{
+            response.status(400);
+            response.send("Invalid Todo Category");
+        }
+        break;
+
 
         default:
             getTodosQuery=`SELECT * FROM todo;`;
@@ -176,8 +177,8 @@ app.get("/todos/",async(request,response)=>{
 
 app.get("/todos/:todoId/",async(request,response)=>{
     const{todoId}=request.params;
-    const getTodosQuery=`SELECT * FROM todo WHERE id=${todoId};`;
-    const responseResult=await database.get(getTodosQuery);
+    const getTodoQuery=`SELECT * FROM todo WHERE id=${todoId};`;
+    const responseResult=await database.get(getTodoQuery);
     response.send(outPutResult(responseResult));
 });
 
@@ -196,7 +197,7 @@ if (isMatch(date,"yyyy-MM-dddd")){
 });
 
 app.post("/todos/",async(request,response)=>{
-    const {id,todo,priority,status,category,dueDate}=request,body;
+    const {id,todo,priority,status,category,dueDate}=request.body;
     if (priority==="HIGH"||priority==="MEDIUM" || priority==="LOW"){
         if(status==="TO DO" || status==="IN PROGRESS" || status==="DONE"){
             if(category==="WORK" || category==="HOME"|| category==="LEARNING"){
@@ -255,7 +256,7 @@ app.put("/todos/:todoId/",async(request,response)=>{
      case requestBody.priority!==undefined:
             if(priority==="HIGH" || priority==="MEDIUM" || priority==="LOW"){
                 updateTodoQuery=`
-                UPDATE todo SET  todo='${todo},priority='${priority}',status='${status}',category='${category}',due_date='${dueDate}'
+                UPDATE todo SET  todo='${todo}',priority='${priority}',status='${status}',category='${category}',due_date='${dueDate}'
                 WHERE id=${todoId};`;
                 await database.run(updateTodoQuery);
                 response.send(`Priority Updated`);
@@ -267,7 +268,7 @@ app.put("/todos/:todoId/",async(request,response)=>{
 
  case requestBody.todo!==undefined:
                 updateTodoQuery=`
-                UPDATE todo SET  todo='${todo},priority='${priority}',status='${status}',category='${category}',due_date='${dueDate}'
+                UPDATE todo SET  todo='${todo}',priority='${priority}',status='${status}',category='${category}',due_date='${dueDate}'
                 WHERE id=${todoId};`;
                 await database.run(updateTodoQuery);
                 response.send(`Todo Updated`);
@@ -275,7 +276,7 @@ app.put("/todos/:todoId/",async(request,response)=>{
  case requestBody.category!==undefined:
             if(category==="WORK" || category==="HOME" || category==="LEARNING"){
                 updateTodoQuery=`
-                UPDATE todo SET  todo='${todo},priority='${priority}',status='${status}',category='${category}',due_date='${dueDate}'
+                UPDATE todo SET  todo='${todo}',priority='${priority}',status='${status}',category='${category}',due_date='${dueDate}'
                 WHERE id=${todoId};`;
                 await database.run(updateTodoQuery);
                 response.send(`Category Updated`);
@@ -289,7 +290,7 @@ app.put("/todos/:todoId/",async(request,response)=>{
             if(isMatch(dueDate,"yyyy-MM-dd")){
                 const newDueDate=format(new Date(dueDate),"yyyy-MM-dd");
                 updateTodoQuery=`
-                UPDATE todo SET  todo='${todo},priority='${priority}',status='${status}',category='${category}',due_date='${newDueDate}'
+                UPDATE todo SET  todo='${todo}',priority='${priority}',status='${status}',category='${category}',due_date='${newDueDate}'
                 WHERE id=${todoId};`;
                 await database.run(updateTodoQuery);
                 response.send("Due Date Updated");
@@ -308,6 +309,145 @@ await database.run(deleteTodoQuery);
 response.send("Todo Deleted");
     });
 module.exports=app;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
